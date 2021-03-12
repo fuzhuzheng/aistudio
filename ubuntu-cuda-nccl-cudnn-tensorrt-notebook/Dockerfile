@@ -4,12 +4,12 @@
 # Ubuntu 20.04 (focal)
 # https://hub.docker.com/_/ubuntu/?tab=tags&name=focal
 # OS/ARCH: linux/amd64
-ARG BASE_CONTAINER=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+ARG BASE_CONTAINER=nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 FROM $BASE_CONTAINER
 
 LABEL maintainer="fuzhuzheng Project <fuzhuzheng@163.com>"
 ARG NB_USER="fuzhuzheng"
-ARG TENSORRT_URL='https://nvidia-cuda-cudnn-tensortr-jupyter.oss-cn-hongkong.aliyuncs.com/nv-tensorrt-repo-ubuntu1804-cuda10.0-trt6.0.1.5-ga-20190913_1-1_amd64.deb?Expires=1607181913&OSSAccessKeyId=TMP.3KdjCbaMXxgD79Nfb3rXFTEJVibsQ6Aq2NeZd29uvqgmXTAz6dC8fXm1m8zxSQkmUmTKb26GJTq2WFx4xyz3QE5SgmRkvU&Signature=aseXc%2BtQImadcRIw4h7JcUxio1I%3D'
+ARG TENSORRT_URL='https://nvidia-cuda-cudnn-tensortr-jupyter.oss-cn-hongkong.aliyuncs.com/nv-tensorrt-repo-ubuntu1804-cuda10.2-trt7.2.3.4-ga-20210226_1-1_amd64.deb?Expires=1615576816&OSSAccessKeyId=TMP.3KdYKp8yn5LXF4jvfaREsuWBryAgfNMV312w57kz9mSGJFkQNMhgTFGJja1MarAX4jN7Ap5dVfEGKjzSQWUPNQCg5MaBmE&Signature=VC1DCda8jnuTFe%2BAzVwaOP5J9fs%3D'
 
 
 
@@ -19,7 +19,7 @@ ARG TENSORRT_URL='https://nvidia-cuda-cudnn-tensortr-jupyter.oss-cn-hongkong.ali
 # Ubuntu 20.04 (focal)
 # https://hub.docker.com/_/ubuntu/?tab=tags&name=focal
 # OS/ARCH: linux/amd64
-# ARG ROOT_CONTAINER=ubuntu:focal-20201106@sha256:4e4bc990609ed865e07afc8427c30ffdddca5153fd4e82c20d8f0783a291e241
+# ARG ROOT_CONTAINER=ubuntu:focal-20210119@sha256:3093096ee188f8ff4531949b8f6115af4747ec1c58858c091c8cb4579c39cc4e
 
 # ARG BASE_CONTAINER=$ROOT_CONTAINER
 # FROM $BASE_CONTAINER
@@ -41,24 +41,25 @@ USER root
 # Conda version
 ARG conda_version="4.9.2"
 # Miniforge installer patch version
-ARG miniforge_patch_number="0"
+ARG miniforge_patch_number="7"
 # Miniforge installer architecture
 ARG miniforge_arch="x86_64"
-# Python implementation to use 
-# can be either Miniforge3 to use Python or Miniforge-pypy3 to use PyPy
-ARG miniforge_python="Miniforge3"
+# Package Manager and Python implementation to use (https://github.com/conda-forge/miniforge)
+# - conda only: either Miniforge3 to use Python or Miniforge-pypy3 to use PyPy
+# - conda + mamba: either Mambaforge to use Python or Mambaforge-pypy3 to use PyPy
+ARG miniforge_python="Mambaforge"
 
 # Miniforge archive to install
 ARG miniforge_version="${conda_version}-${miniforge_patch_number}"
 # Miniforge installer
 ARG miniforge_installer="${miniforge_python}-${miniforge_version}-Linux-${miniforge_arch}.sh"
 # Miniforge checksum
-ARG miniforge_checksum="6321775eb2c02d7f51d3a9004ce0be839099f126f4099c781531428536669560"
+ARG miniforge_checksum="5a827a62d98ba2217796a9dc7673380257ed7c161017565fba8ce785fb21a599"
 
 # Install all OS dependencies for notebook server that starts but lacks all
 # features (e.g., download as all possible file formats)
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update \
+RUN apt-get -q update \
  && apt-get install -yq --no-install-recommends \
     wget \
     ca-certificates \
@@ -117,7 +118,7 @@ RUN mkdir "/home/$NB_USER/work" && \
 # Install conda as jovyan and check the sha256 sum provided on the download site
 WORKDIR /tmp
 
-# Prerequisites installation: conda, pip, tini
+# Prerequisites installation: conda, mamba, pip, tini
 RUN wget --quiet "https://github.com/conda-forge/miniforge/releases/download/${miniforge_version}/${miniforge_installer}" && \
     echo "${miniforge_checksum} *${miniforge_installer}" | sha256sum --check && \
     /bin/bash "${miniforge_installer}" -f -b -p $CONDA_DIR && \
@@ -146,13 +147,13 @@ RUN wget --quiet "https://github.com/conda-forge/miniforge/releases/download/${m
 # Do all this in a single RUN command to avoid duplicating all of the
 # files across image layers when the permissions change
 RUN conda install --quiet --yes \
-    'notebook=6.1.5' \
-    'jupyterhub=1.2.2' \
-    'jupyterlab=2.2.9' && \
+    'notebook=6.2.0' \
+    'jupyterhub=1.3.0' \
+    'jupyterlab=3.0.9' && \
     conda clean --all -f -y && \
     npm cache clean --force && \
     jupyter notebook --generate-config && \
-    rm -rf $CONDA_DIR/share/jupyter/lab/staging && \
+    jupyter lab clean && \
     rm -rf /home/$NB_USER/.cache/yarn && \
     fix-permissions $CONDA_DIR && \
     fix-permissions /home/$NB_USER
@@ -165,10 +166,16 @@ CMD ["start-notebook.sh"]
 
 # Copy local files as late as possible to avoid cache busting
 COPY start.sh start-notebook.sh start-singleuser.sh /usr/local/bin/
+# Currently need to have both jupyter_notebook_config and jupyter_server_config to support classic and lab
 COPY jupyter_notebook_config.py /etc/jupyter/
 
 # Fix permissions on /etc/jupyter as root
 USER root
+
+# Prepare upgrade to JupyterLab V3.0 #1205
+RUN sed -re "s/c.NotebookApp/c.ServerApp/g" \
+    /etc/jupyter/jupyter_notebook_config.py > /etc/jupyter/jupyter_server_config.py
+
 RUN fix-permissions /etc/jupyter/
 
 # Switch back to jovyan to avoid accidental container runs as root
@@ -234,43 +241,29 @@ RUN conda install --quiet --yes \
     'bottleneck=1.3.*' \
     'cloudpickle=1.6.*' \
     'cython=0.29.*' \
-    'dask=2.30.*' \
+    'dask=2021.2.*' \
     'dill=0.3.*' \
     'h5py=3.1.*' \
-    'ipywidgets=7.5.*' \
-    'ipympl=0.5.*'\
+    'ipywidgets=7.6.*' \
+    'ipympl=0.6.*'\
     'matplotlib-base=3.3.*' \
-    'numba=0.51.*' \
+    'numba=0.52.*' \
     'numexpr=2.7.*' \
-    'pandas=1.1.*' \
+    'pandas=1.2.*' \
     'patsy=0.5.*' \
-    'protobuf=3.13.*' \
+    'protobuf=3.15.*' \
     'pytables=3.6.*' \
-    'scikit-image=0.17.*' \
-    'scikit-learn=0.23.*' \
-    'scipy=1.5.*' \
+    'scikit-image=0.18.*' \
+    'scikit-learn=0.24.*' \
+    'scipy=1.6.*' \
     'seaborn=0.11.*' \
     'sqlalchemy=1.3.*' \
     'statsmodels=0.12.*' \
     'sympy=1.7.*' \
     'vincent=0.4.*' \
     'widgetsnbextension=3.5.*'\
-    'xlrd=1.2.*' \
-    && \
+    'xlrd=2.0.*' && \
     conda clean --all -f -y && \
-    # Activate ipywidgets extension in the environment that runs the notebook server
-    jupyter nbextension enable --py widgetsnbextension --sys-prefix && \
-    # Also activate ipywidgets extension for JupyterLab
-    # Check this URL for most recent compatibilities
-    # https://github.com/jupyter-widgets/ipywidgets/tree/master/packages/jupyterlab-manager
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager@^2.0.0 --no-build && \
-    jupyter labextension install @bokeh/jupyter_bokeh@^2.0.0 --no-build && \
-    jupyter labextension install jupyter-matplotlib@^0.7.2 --no-build && \
-    jupyter lab build -y && \
-    jupyter lab clean -y && \
-    npm cache clean --force && \
-    rm -rf "/home/${NB_USER}/.cache/yarn" && \
-    rm -rf "/home/${NB_USER}/.node-gyp" && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
 
