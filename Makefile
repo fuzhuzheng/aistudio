@@ -25,7 +25,10 @@ ALL_IMAGES:=$(ALL_STACKS)
 
 # Dockerfile Linter
 HADOLINT="${HOME}/hadolint"
-HADOLINT_VERSION="v1.19.0"
+HADOLINT_VERSION="v1.22.1"
+
+# Enable BuildKit for Docker build
+export DOCKER_BUILDKIT:=1
 
 help:
 # http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
@@ -151,7 +154,7 @@ pull/%: ## pull a jupyter image
 
 push/%: DARGS?=
 push/%: ## push all tags for a jupyter image
-	docker push $(DARGS) $(OWNER)/$(notdir $@)
+	docker push --all-tags $(DARGS) $(OWNER)/$(notdir $@)
 
 push-all: $(foreach I,$(ALL_IMAGES),push/$(I) ) ## push all tagged images
 
