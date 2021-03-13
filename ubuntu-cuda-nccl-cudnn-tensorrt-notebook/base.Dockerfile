@@ -9,7 +9,7 @@ FROM $BASE_CONTAINER
 
 LABEL maintainer="fuzhuzheng Project <fuzhuzheng@163.com>"
 ARG NB_USER="fuzhuzheng"
-ARG TENSORRT_URL='https://nvidia-cuda-cudnn-tensortr-jupyter.oss-cn-hongkong.aliyuncs.com/nv-tensorrt-repo-ubuntu1804-cuda10.2-trt7.2.3.4-ga-20210226_1-1_amd64.deb?Expires=1615576816&OSSAccessKeyId=TMP.3KdYKp8yn5LXF4jvfaREsuWBryAgfNMV312w57kz9mSGJFkQNMhgTFGJja1MarAX4jN7Ap5dVfEGKjzSQWUPNQCg5MaBmE&Signature=VC1DCda8jnuTFe%2BAzVwaOP5J9fs%3D'
+ARG TENSORRT_URL='https://nvidia-cuda-cudnn-tensortr-jupyter.oss-cn-hongkong.aliyuncs.com/nv-tensorrt-repo-ubuntu1804-cuda10.2-trt7.2.3.4-ga-20210226_1-1_amd64.deb?Expires=1615629992&OSSAccessKeyId=TMP.3Kh51j9W42gQp7SmAMRGSP2Kn2j74LXE55EEVnEWfjjk8quqZT9cFbiovetB4ACMoK7C3wma86DiPVTDenfvvMkFgoSiCq&Signature=Pxeyn1HZ8s%2BWV3vsz4bJB5tIn1Y%3D'
 
 
 
